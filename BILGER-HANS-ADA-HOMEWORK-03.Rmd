@@ -113,8 +113,10 @@ df <- d %>% select(MaxLongevity_m, Brain_Size_Species_Mean)
 df <- df %>% drop_na
 Longevity <- df$MaxLongevity_m
 df$lnLongevity <- log(Longevity)
+lnLongevity <- df$lnLongevity
 BrainSize <- df$Brain_Size_Species_Mean
 df$lnBrainSize <- log(BrainSize)
+lnBrainSize <- df$lnBrainSize
 ```
 
 ```{r}
@@ -123,8 +125,7 @@ df$lnBrainSize <- log(BrainSize)
 ##### Basic regression equations
 m <- lm(Longevity ~ BrainSize, data = df)
 summary(m)
-a <- format(coef(m)[1], digits = 5)
-b <- coef(m)[2]
+
 lnm <- lm(lnLongevity ~ lnBrainSize, data = df)
 lnm
 
@@ -168,11 +169,26 @@ lng
 beta1 <- cov(Longevity, BrainSize)/var(BrainSize)
 beta1
 
+lnbeta1 <- cov(lnLongevity, lnBrainSize)/var(lnBrainSize)
+lnbeta1
 ##### The point estimate of the slope is 1.218. If significant, that for every unit of brain size increase (i.e. 1 gram), longevity will increase by 1.218 units (i.e. 1.218 days).
 
 summary(m)
-
 t <- coef(summary(m))
+t <- data.frame(unlist(t))
+colnames(t) <- c("Est", "SE", "t", "p")
+t$calct <- (t$Est - 0)/t$SE
+t$calct
+t$calcp <- 2 * pt(t$calct, df = 126, lower.tail = FALSE)
+t
+alpha <- 0.05
+t$lmCI <- confint(m, level = 1 - alpha) 
+
+t.test(x=t$Est, mu=0, alternative='two.sided')
+
+
+summary(lnm)
+t <- coef(summary(lnm))
 t <- data.frame(unlist(t))
 colnames(t) <- c("Est", "SE", "t", "p")
 t$calct <- (t$Est - 0)/t$SE
@@ -188,7 +204,7 @@ t.test(x=t$Est, mu=0, alternative='two.sided')
 
 ```{r}
 ####Using your model, add lines for the 90% confidence and prediction interval bands on the plot, and add a legend to differentiate between the lines.
-m <- lm(data = d, Longevity ~ BrainSize)
+m <- lm(data = df, Longevity ~ BrainSize)
 h_hat <- predict(m, newdata = data.frame(BS = BrainSize))
 df2 <- data.frame(cbind(BrainSize, Longevity, h_hat))
 names(df2) <- c("x", "y", "yhat")
@@ -203,6 +219,24 @@ head(df2)
 names(df2) <- c("x", "y", "yhat", "CIfit", "CIlwr", "CIupr")
 head(df2)
 
+#### ln version
+lnm <- lm(data = df, lnLongevity ~ lnBrainSize)
+h_hat <- predict(lnm, newdata = data.frame(BS = lnBrainSize))
+
+lndf2 <- data.frame(cbind(lnBrainSize, lnLongevity, h_hat))
+names(lndf2) <- c("x", "y", "yhat")
+head(lndf2)
+
+ci <- predict(lnm, newdata = data.frame(BS = lnBrainSize), interval = "confidence", 
+    level = 0.90)  # for a vector of values
+head(ci)
+
+lndf2 <- cbind(lndf2, ci)
+head(lndf2)
+names(lndf2) <- c("x", "y", "yhat", "CIfit", "CIlwr", "CIupr")
+head(lndf2)
+
+
 ##### Graph of 90% confidence interval
 
 g <- ggplot(data = df2, aes(x = BrainSize, y = Longevity))
@@ -211,6 +245,14 @@ g <- g + geom_line(aes(x = BrainSize, y = CIfit), colour = "black")
 g <- g + geom_line(aes(x = BrainSize, y = CIlwr), colour = "blue")
 g <- g + geom_line(aes(x = BrainSize, y = CIupr), colour = "blue")
 g
+
+#### ln version
+lng <- ggplot(data = lndf2, aes(x = lnBrainSize, y = lnLongevity))
+lng <- lng + geom_point(alpha = .1)
+lng <- lng + geom_line(aes(x = lnBrainSize, y = CIfit), colour = "black")
+lng <- lng + geom_line(aes(x = lnBrainSize, y = CIlwr), colour = "blue")
+lng <- lng + geom_line(aes(x = lnBrainSize, y = CIupr), colour = "blue")
+lng
 
 ##### 90% prediction interval
 pi <- predict(m, newdata = data.frame(BS = BrainSize), interval = "prediction", 
@@ -223,6 +265,17 @@ names(df2) <- c("x", "y", "yhat", "CIfit", "CIlwr", "CIupr", "PIfit", "PIlwr",
     "PIupr")
 head(df2)
 
+#### ln version
+lnpi <- predict(lnm, newdata = data.frame(BS = lnBrainSize), interval = "prediction", 
+    level = 0.95)  # for a vector of values
+head(lnpi)
+
+lndf2 <- cbind(lndf2, lnpi)
+head(lndf2)
+names(lndf2) <- c("x", "y", "yhat", "CIfit", "CIlwr", "CIupr", "PIfit", "PIlwr", 
+    "PIupr")
+head(lndf2)
+
 #####graph of 90% confidence (blue) and prediction (red) intervals
 g <- ggplot(data = df2, aes(x = BrainSize, y = Longevity))
 g <- g + geom_point()
@@ -233,6 +286,17 @@ g <- g + geom_line(data = df2, aes(x = BrainSize, y = PIlwr), colour = "red")
 g <- g + geom_line(data = df2, aes(x = BrainSize, y = PIupr), colour = "red")
 g <- g + geom_text(x = 200, y = 1000, label = "black = fit, blue = confidence interval, red = predicition interval")
 g
+
+#### ln version
+lng <- ggplot(data = lndf2, aes(x = lnBrainSize, y = lnLongevity))
+lng <- lng + geom_point()
+lng <- lng + geom_line(aes(x = lnBrainSize, y = CIfit), colour = "black")
+lng <- lng + geom_line(aes(x = lnBrainSize, y = CIlwr), colour = "blue")
+lng <- lng + geom_line(aes(x = lnBrainSize, y = CIupr), colour = "blue")
+lng <- lng + geom_line(data = lndf2, aes(x = lnBrainSize, y = PIlwr), colour = "red")
+lng <- lng + geom_line(data = lndf2, aes(x = lnBrainSize, y = PIupr), colour = "red")
+lng <- lng + geom_text(x = 3, y = 6.7, label = "black = fit, blue = confidence interval, red = predicition interval")
+lng
 
 ```
 
@@ -246,6 +310,17 @@ pi <- predict(m, newdata = data.frame(BrainSize = 800), interval = "prediction",
     level = 0.90)  # for a single value
 pi
 ##### 90% prediction interval: 1021.8, 1424.9
+
+#### ln version
+summary(lnm)
+log(800) = 6.68
+y = 0.234x + 4.88 = 6.44
+  
+lnpi <- predict(lnm, newdata = data.frame(lnBrainSize = log(800)), interval = "prediction", 
+    level = 0.90)  # for a single value
+lnpi
+
+##### 90% prediction interval: 6.02, 6.87
 
 ##### I don't really trust the model to predict observations accurately at 800g Brain Size because the vast majority of observations are for brains less than 150g. There may be some change in the relationship between brain size and longevity at brain sizes >150g that isn't being reflected in the data collected here.
 ```
